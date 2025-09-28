@@ -1,3 +1,5 @@
+import os
+
 from my_logger import logger
 from mqtt_methods import subscribe_and_wait_auth
 import json
@@ -6,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.1.3 from github
+# version 0.1.4 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 
