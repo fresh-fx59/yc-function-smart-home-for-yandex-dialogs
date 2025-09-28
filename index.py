@@ -1,5 +1,5 @@
 from my_logger import logger
-from mqtt_methods import subscribe_and_wait
+from mqtt.mqtt_methods import subscribe_and_wait_auth
 import json
 from enum import Enum
 from typing import Dict, Any, List
@@ -7,13 +7,17 @@ import requests
 import base64
 from dataclasses import dataclass, field
 
-# version 0.1.2 from github
+# version 0.1.3 from github
+
+REGISTRY_ID = os.environ['REGISTRY_ID']
 
 PUSHER_ID = "pusher"
-TEST_PUSHER_ID = "pushernodemcu"
 PUSHER_DEVICE_ID = os.environ['PUSHER_DEVICE_ID']
+PUSHER_PASSWORD = os.environ['PUSHER_DEVICE_PASSWORD']
+
+TEST_PUSHER_ID = "pushernodemcu"
 TEST_PUSHER_DEVICE_ID = os.environ['TEST_PUSHER_DEVICE_ID']
-REGISTRY_ID = os.environ['REGISTRY_ID']
+TEST_PUSHER_PASSWORD = os.environ['TEST_PUSHER_DEVICE_PASSWORD']
 
 
 class RequestType(Enum):
@@ -33,6 +37,7 @@ class DeviceManager:
             TEST_PUSHER_ID: {
                 "mqtt_device_id": TEST_PUSHER_DEVICE_ID,
                 "name": "nodemcuv2 Button Pusher",
+                "password": TEST_PUSHER_PASSWORD,
                 "description": "Smart button pusher device",
                 "type": "devices.types.switch",
                 "capabilities": ["devices.capabilities.on_off"]
@@ -40,6 +45,7 @@ class DeviceManager:
             PUSHER_ID: {
                 "mqtt_device_id": PUSHER_DEVICE_ID,
                 "name": "Button Pusher",
+                "password": PUSHER_PASSWORD,
                 "description": "Smart button pusher device",
                 "type": "devices.types.switch",
                 "capabilities": ["devices.capabilities.on_off"]
@@ -95,37 +101,38 @@ class DeviceManager:
 
     def get_query_response(self, request_id: str, devices: List[Dict], context) -> Dict[str, Any]:
         """Generate query response for device states"""
+        global result_from_topic, topic, device_id
         response_devices = []
 
-        # for device in devices:
-        #     device_id = device.get("id")
+        for device in devices:
+            device_id = device.get("id")
 
-        #     result_from_topic = None
-        #     if (device_id == TEST_PUSHER_ID or device_id == PUSHER_ID):
-        # topic = self.getStateTopic(device_id);
-        # publish_result = self.publish_command_to_api(device_id, "state", context)
-        # logger.info(f"Got publish_result = {publish_result} from commands topic");
-        # result_from_topic = subscribe_and_wait(topic)
-        # logger.info(f"Got result = {result_from_topic} from topic: {topic}");
+            result_from_topic = None
+            if device_id == TEST_PUSHER_ID or device_id == PUSHER_ID:
+                topic = self.getStateTopic(device_id)
+                publish_result = self.publish_command_to_api(device_id, "state", context)
+                logger.info(f"Got publish_result = {publish_result} from commands topic")
+                result_from_topic = subscribe_and_wait_auth(topic, device_id, self.devices[device_id]["password"])
+                logger.info(f"Got result = {result_from_topic} from topic: {topic}")
 
-        # value = False
-        # logger.info(f"Same variables before if. Got result = {result_from_topic} from topic: {topic}");
-        # if result_from_topic != None:
-        #     if result_from_topic["state"] == "on":
-        #         value = True
+        value = False
+        logger.info(f"Same variables before if. Got result = {result_from_topic} from topic: {topic}")
+        if result_from_topic is not None:
+            if result_from_topic["state"] == "on":
+                value = True
 
-        # response_devices.append({
-        #     "id": device_id,
-        #     "capabilities": [
-        #         {
-        #             "type": "devices.capabilities.on_off",
-        #             "state": {
-        #                 "instance": "on",
-        #                 "value": value
-        #             }
-        #         }
-        #     ]
-        # })
+        response_devices.append({
+            "id": device_id,
+            "capabilities": [
+                {
+                    "type": "devices.capabilities.on_off",
+                    "state": {
+                        "instance": "on",
+                        "value": value
+                    }
+                }
+            ]
+        })
 
         return {
             "request_id": request_id,
