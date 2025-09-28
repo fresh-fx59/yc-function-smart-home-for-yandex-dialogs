@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.1.9 from github
+# version 0.2 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 
@@ -68,7 +68,7 @@ class DeviceManager:
                         "capabilities": [
                             {
                                 "type": "devices.capabilities.on_off",
-                                "retrievable": False
+                                "retrievable": True
                             }
                         ],
                         "device_info": {
@@ -86,7 +86,7 @@ class DeviceManager:
                         "capabilities": [
                             {
                                 "type": "devices.capabilities.on_off",
-                                "retrievable": False
+                                "retrievable": True
                             }
                         ],
                         "device_info": {
@@ -102,38 +102,40 @@ class DeviceManager:
 
     def get_query_response(self, request_id: str, devices: List[Dict], context) -> Dict[str, Any]:
         """Generate query response for device states"""
-        global result_from_topic, topic, device_id
+        # global result_from_topic, topic, device_id
         response_devices = []
 
         for device in devices:
             device_id = device.get("id")
+            topic = self.getStateTopic(device_id)
+            logger.info(f"get_query_response processing Device ID: {device_id}")
 
             result_from_topic = None
             if device_id == TEST_PUSHER_ID or device_id == PUSHER_ID:
-                topic = self.getStateTopic(device_id)
                 publish_result = self.publish_command_to_api(device_id, "state", context)
                 logger.info(f"Got publish_result = {publish_result} from commands topic")
+
                 result_from_topic = subscribe_and_wait_auth(topic, device_id, self.devices[device_id]["password"])
                 logger.info(f"Got result = {result_from_topic} from topic: {topic}")
 
-        value = False
-        logger.info(f"Same variables before if. Got result = {result_from_topic} from topic: {topic}")
-        if result_from_topic is not None:
-            if result_from_topic["state"] == "on":
-                value = True
+            value = False
+            logger.info(f"Same variables before if. Got result = {result_from_topic} from topic: {topic}")
+            if result_from_topic is not None:
+                if result_from_topic["state"] == "on":
+                    value = True
 
-        response_devices.append({
-            "id": device_id,
-            "capabilities": [
-                {
-                    "type": "devices.capabilities.on_off",
-                    "state": {
-                        "instance": "on",
-                        "value": value
+            response_devices.append({
+                "id": device_id,
+                "capabilities": [
+                    {
+                        "type": "devices.capabilities.on_off",
+                        "state": {
+                            "instance": "on",
+                            "value": value
+                        }
                     }
-                }
-            ]
-        })
+                ]
+            })
 
         return {
             "request_id": request_id,
