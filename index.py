@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.1.5 from github
+# version 0.1.6 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 
@@ -165,7 +165,7 @@ class DeviceManager:
                 logger.info(f"Response body {response.text}")
                 return True
             else:
-                logger.error(f"Failed to send command to {device_id}: {response.status_code} - {response.text}")
+                logger.error(f"Failed to send command to registry{self.registry_id}:{device_id}:{mqtt_device_id}: {response.status_code} - {response.text}")
                 return False
 
         except Exception as e:
