@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.2 from github
+# version 0.2.1 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 
@@ -148,7 +148,7 @@ class DeviceManager:
         """Send MQTT command to device via Yandex IoT Core"""
         try:
             mqtt_device_id = self.devices[device_id]["mqtt_device_id"]
-            url = f"https://iot-data.api.cloud.yandex.net/iot-devices/v1/registries/{self.registry_id}/publish"
+            url = f"https://iot-data.api.cloud.yandex.net/iot-devices/v1/devices/{mqtt_device_id}/publish"
 
             base64_message = base64.b64encode(message.encode('ascii')).decode('ascii')
             iam_token = context.token["access_token"]
