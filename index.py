@@ -167,7 +167,8 @@ class DeviceManager:
                 logger.info(f"Response body {response.text}")
                 return True
             else:
-                logger.error(f"Failed to send command to registry:{self.registry_id}:{device_id}:{mqtt_device_id}: {response.status_code} - {response.text}")
+                logger.error(f"Failed to send command to registry:{self.registry_id}:{device_id}:{mqtt_device_id} "
+                             f" with iam token {iam_token}: {response.status_code} - {response.text}")
                 return False
 
         except Exception as e:
