@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.1.7 from github
+# version 0.1.8 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 
@@ -243,11 +243,11 @@ class SmartHomeHandler:
                 device_response["capabilities"].append(capability_response)
 
             # Add overall device result if needed
-            if not success:
-                device_response["action_result"] = {
-                    "status": "ERROR",
-                    "error_code": "DEVICE_UNREACHABLE"
-                }
+            # if not success:
+            #     device_response["action_result"] = {
+            #         "status": "ERROR",
+            #         "error_code": "DEVICE_UNREACHABLE"
+            #     }
 
             response_devices.append(device_response)
 
