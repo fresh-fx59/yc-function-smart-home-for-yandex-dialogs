@@ -37,26 +37,26 @@ class MQTTClient:
             self.received_payload = msg.payload
         self.message_received = True
 
-    def connect_certs(self):
-        """Set up TLS with client certificates and connect."""
-        try:
-            # TLS Setup with CA, client certificate, and key
-            self._client.tls_set(
-                ca_certs=MQTTConfig.CERTIFICATE_PATH,
-                certfile=MQTTConfig.CLIENT_CERT_PATH,
-                keyfile=MQTTConfig.CLIENT_KEY_PATH,
-                tls_version=MQTTConfig.TLS_VERSION
-            )
-            # Disable certificate verification for self-signed certificates if needed
-            self._client.tls_insecure_set(False)
-        except FileNotFoundError as e:
-            logger.error(f"Fatal Error: Certificate file not found: {e}")
-            raise
-        except Exception as e:
-            logger.error(f"Fatal Error: TLS setup failed: {e}")
-            raise
-
-        self._connect_internal()
+    # def connect_certs(self):
+    #     """Set up TLS with client certificates and connect."""
+    #     try:
+    #         # TLS Setup with CA, client certificate, and key
+    #         self._client.tls_set(
+    #             ca_certs=MQTTConfig.CERTIFICATE_PATH,
+    #             certfile=MQTTConfig.CLIENT_CERT_PATH,
+    #             keyfile=MQTTConfig.CLIENT_KEY_PATH,
+    #             tls_version=MQTTConfig.TLS_VERSION
+    #         )
+    #         # Disable certificate verification for self-signed certificates if needed
+    #         self._client.tls_insecure_set(False)
+    #     except FileNotFoundError as e:
+    #         logger.error(f"Fatal Error: Certificate file not found: {e}")
+    #         raise
+    #     except Exception as e:
+    #         logger.error(f"Fatal Error: TLS setup failed: {e}")
+    #         raise
+    #
+    #     self._connect_internal()
 
     def connect_auth(self, username: str, password: str):
         """Set up authentication with username/password (JWT) and connect."""

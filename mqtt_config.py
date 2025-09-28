@@ -6,7 +6,7 @@ class MQTTConfig:
     MQTT_PORT = 8883
 
     # Path constants
-    CERTIFICATE_PATH = "certificate.pem"
+    CERTIFICATE_PATH = "rootCA.crt"
     CLIENT_CERT_PATH = "client-cert.pem"
     CLIENT_KEY_PATH = "client-key.pem"
 
