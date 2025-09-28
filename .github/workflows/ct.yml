@@ -41,3 +41,4 @@ jobs:
           include: |
             **/*.py
             **/*.txt
+            **/*.crt
