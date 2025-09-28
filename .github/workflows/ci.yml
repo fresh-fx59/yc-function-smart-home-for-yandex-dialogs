@@ -1,0 +1,45 @@
+permissions:
+  id-token: write # Это необходимо для запроса JWT
+
+on:
+  push:
+    branches: [ feature** ]
+    paths-ignore:
+      - '.github/**'
+
+  # Позволяет запускать этот workflow вручную из вкладки Actions
+  workflow_dispatch:
+
+jobs:
+  build:
+    environment: preprod
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{secrets.PAT_TOKEN}}
+      - name: Deploy Function
+        id: sls-func
+        uses: yc-actions/yc-sls-function@v3.1.0
+        with:
+          yc-sa-id: ${{env.SA_ID}}
+          folder-id: ${{env.FOLDER_ID}}
+          function-name: ${{env.FUNCTION_NAME}}
+          runtime: ${{env.FUNCTION_RUNTIME}}
+          entrypoint: ${{env.FUNCTION_ENTRYPOINT}}
+          memory: ${{env.FUNCTION_MEMORY}}
+          source-root: ${{env.FUNCTION_SOURCEROOT}}
+          # service-account: ${{env.SERVICE_ACCOUNT}}
+#          secrets:
+#            ${{env.SECRETS_REGISTRY_ID}}
+#            ${{env.SECRETS_PUSHER_DEVICE_ID}}
+#            ${{env.SECRETS_TEST_PUSHER_DEVICE_ID}}
+          execution-timeout: ${{env.EXECUTION_TIMEOUT}}
+#          network-id: ${{env.NETWORK_ID}}
+          logs-disabled: ${{env.IS_LOGS_DISABLED}}
+          # logs-group-id: ${{env.LOGS_GROUP_ID}}
+          # log-level: ${{env.LOG_LEVEL}}
+          include: |
+            **/*.py
+            **/*.txt

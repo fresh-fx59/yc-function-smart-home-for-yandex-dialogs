@@ -1,0 +1,47 @@
+permissions:
+  id-token: write # Это необходимо для запроса JWT
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '.github/**' # Это позволит игнорировать изменения в файлах workflow
+
+  release:
+    types:
+      - published
+
+  # Позволяет запускать этот workflow вручную из вкладки Actions
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{secrets.PAT_TOKEN}}
+      - name: Deploy Function
+        id: sls-func
+        uses: yc-actions/yc-sls-function@v3.1.0
+        with:
+          yc-sa-id: ${{secrets.YC_SA_ID}}
+          folder-id: ${{secrets.FOLDER_ID}}
+          function-name: ${{secrets.FUNCTION_NAME}}
+          runtime: 'python312'
+          entrypoint: 'index.handler'
+          memory: '128mb'
+          source-root: '.'
+          service-account: ${{secrets.SERVICE_ACCOUNT}}
+          secrets: |
+            ${{secrets.SECRETS}}
+          execution-timeout: '20'
+          network-id: ${{secrets.NETWORK_ID}}
+          logs-disabled: 'false'
+          logs-group-id: ${{secrets.LOGS_GROUP_ID}}
+          log-level: INFO
+          include: |
+            **/*.py
+            **/*.txt
