@@ -1,11 +1,10 @@
 from my_logger import logger
-from mqtt.mqtt_methods import subscribe_and_wait_auth
+from mqtt_methods import subscribe_and_wait_auth
 import json
 from enum import Enum
 from typing import Dict, Any, List
 import requests
 import base64
-from dataclasses import dataclass, field
 
 # version 0.1.3 from github
 

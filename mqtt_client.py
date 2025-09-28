@@ -1,7 +1,7 @@
 from my_logger import logger
 import paho.mqtt.client as mqtt_client
 import time
-from config.mqtt_config import MQTTConfig
+from mqtt_config import MQTTConfig
 
 
 class MQTTClient:
