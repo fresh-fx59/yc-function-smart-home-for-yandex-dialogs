@@ -8,9 +8,10 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.2 from github
+# version 0.4 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
+REGISTRY_PASSWORD = os.environ['REGISTRY_PASSWORD']
 
 PUSHER_ID = "pusher"
 PUSHER_DEVICE_ID = os.environ['PUSHER_DEVICE_ID']
@@ -34,6 +35,7 @@ class DeviceManager:
 
     def __init__(self):
         self.registry_id = REGISTRY_ID
+        self.registry_password = REGISTRY_PASSWORD
         self.devices = {
             TEST_PUSHER_ID: {
                 "mqtt_device_id": TEST_PUSHER_DEVICE_ID,
@@ -115,7 +117,7 @@ class DeviceManager:
                 publish_result = self.publish_command_to_api(device_id, "state", context)
                 logger.info(f"Got publish_result = {publish_result} from commands topic")
 
-                result_from_topic = subscribe_and_wait_auth(topic, device_id, self.devices[device_id]["password"])
+                result_from_topic = subscribe_and_wait_auth(topic, self.registry_id, self.registry_password)
                 logger.info(f"Got result = {result_from_topic} from topic: {topic}")
 
             value = False
@@ -177,7 +179,7 @@ class DeviceManager:
 
     def getStateTopic(self, device_id):
         mqtt_device_id = self.devices[device_id]["mqtt_device_id"]
-        return f"$devices/{mqtt_device_id}/events/"
+        return f"$devices/{mqtt_device_id}/state"
 
 
 class SmartHomeHandler:
