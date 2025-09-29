@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.4 from github
+# version 0.6 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 REGISTRY_PASSWORD = os.environ['REGISTRY_PASSWORD']
@@ -220,8 +220,6 @@ class SmartHomeHandler:
                 "capabilities": []
             }
 
-            success = True
-
             for capability in capabilities:
                 capability_type = capability.get("type")
                 capability_response = {
@@ -234,25 +232,60 @@ class SmartHomeHandler:
                         device_id == PUSHER_ID or device_id == TEST_PUSHER_ID) and capability_type == "devices.capabilities.on_off":
                     state_value = capability["state"].get("value")
                     command = "1" if state_value else "0"
+                    topic = self.device_manager.getStateTopic(device_id)
 
+                    logger.info(f"Processing action for Device ID: {device_id}, desired state: {state_value}")
+
+                    # Get state before action
+                    logger.info(f"Getting state before action from topic: {topic}")
+                    self.device_manager.publish_command_to_api(device_id, "state", context)
+                    state_before = subscribe_and_wait_auth(topic, self.device_manager.registry_id,
+                                                           self.device_manager.registry_password)
+                    logger.info(f"State before action: {state_before}")
+
+                    # Perform the action
                     if self.device_manager.publish_command_to_api(device_id, command, context):
-                        capability_response["state"]["action_result"] = {"status": "DONE"}
-                        logger.info(f"Pusher command sent successfully: {command}")
+                        logger.info(f"Command '{command}' sent successfully to device {device_id}")
+
+                        # Get state after action
+                        logger.info(f"Getting state after action from topic: {topic}")
+                        self.device_manager.publish_command_to_api(device_id, "state", context)
+                        state_after = subscribe_and_wait_auth(topic, self.device_manager.registry_id,
+                                                              self.device_manager.registry_password)
+                        logger.info(f"State after action: {state_after}")
+
+                        # Verify the action completed successfully
+                        if state_after is not None:
+                            actual_state = state_after.get("state")
+                            expected_state = "on" if state_value else "off"
+
+                            if actual_state == expected_state:
+                                capability_response["state"]["action_result"] = {"status": "DONE"}
+                                logger.info(f"Action verified successful: device is now {actual_state}")
+                            else:
+                                capability_response["state"]["action_result"] = {
+                                    "status": "ERROR",
+                                    "error_code": "DEVICE_UNREACHABLE",
+                                    "error_message": f"Expected state '{expected_state}' but got '{actual_state}'"
+                                }
+                                logger.error(
+                                    f"Action verification failed: expected {expected_state}, got {actual_state}")
+                        else:
+                            capability_response["state"]["action_result"] = {
+                                "status": "ERROR",
+                                "error_code": "DEVICE_UNREACHABLE",
+                                "error_message": "Failed to get state after action"
+                            }
+                            logger.error("Failed to retrieve state after action")
                     else:
                         capability_response["state"]["action_result"] = {
                             "status": "ERROR",
-                            "error_code": "DEVICE_UNREACHABLE"
+                            "error_code": "DEVICE_UNREACHABLE",
+                            "error_message": "Failed to send command to device"
                         }
-                        success = False
+                        logger.error(f"Failed to send command to device {device_id}")
 
                 device_response["capabilities"].append(capability_response)
-
-            # Add overall device result if needed
-            # if not success:
-            #     device_response["action_result"] = {
-            #         "status": "ERROR",
-            #         "error_code": "DEVICE_UNREACHABLE"
-            #     }
 
             response_devices.append(device_response)
 
