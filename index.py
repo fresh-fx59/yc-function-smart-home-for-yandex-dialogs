@@ -12,7 +12,7 @@ import requests
 
 from my_logger import logger
 
-# version 0.11
+# version 0.13
 
 CERTIFICATE_PATH = "rootCA.crt"
 
@@ -277,34 +277,45 @@ class DeviceManager:
 
             logger.info(f"get_query_response processing Device ID: {device_id}")
 
-            value = False
+            device_response = {
+                "id": device_id
+            }
+
             if device_id == TEST_PUSHER_ID or device_id == PUSHER_ID:
                 # Request state
                 publish_result = self.publish_command_to_api(device_id, "state", context)
-                logger.info(f"Sent state request, result: {publish_result}")
 
-                # Wait for state from MQTT
-                state_data = self.mqtt_client.wait_for_state(mqtt_device_id, timeout=5.0)
-
-                if state_data is not None:
-                    if state_data.get('state') == "on":
-                        value = True
-                    logger.info(f"Got state for {device_id}: {state_data.get('state')}")
+                if not publish_result:
+                    # Failed to send command to device
+                    device_response["error_code"] = "DEVICE_UNREACHABLE"
+                    device_response["error_message"] = "Failed to send state request to device"
+                    logger.error(f"Failed to send state request to {device_id}")
                 else:
-                    logger.warning(f"No state received for {device_id}")
+                    logger.info(f"Sent state request, result: {publish_result}")
 
-            response_devices.append({
-                "id": device_id,
-                "capabilities": [
-                    {
-                        "type": "devices.capabilities.on_off",
-                        "state": {
-                            "instance": "on",
-                            "value": value
-                        }
-                    }
-                ]
-            })
+                    # Wait for state from MQTT
+                    state_data = self.mqtt_client.wait_for_state(mqtt_device_id, timeout=5.0)
+
+                    if state_data is not None:
+                        value = True if state_data.get('state') == "on" else False
+                        logger.info(f"Got state for {device_id}: {state_data.get('state')}")
+
+                        device_response["capabilities"] = [
+                            {
+                                "type": "devices.capabilities.on_off",
+                                "state": {
+                                    "instance": "on",
+                                    "value": value
+                                }
+                            }
+                        ]
+                    else:
+                        # Device didn't respond
+                        device_response["error_code"] = "DEVICE_UNREACHABLE"
+                        device_response["error_message"] = "Device did not respond to state request"
+                        logger.error(f"No state received for {device_id} within timeout")
+
+            response_devices.append(device_response)
 
         return {
             "request_id": request_id,
@@ -377,9 +388,11 @@ class SmartHomeHandler:
             capabilities = device.get("capabilities", [])
 
             device_response = {
-                "id": device_id,
-                "capabilities": []
+                "id": device_id
             }
+
+            device_capabilities = []
+            device_unreachable = False
 
             for capability in capabilities:
                 capability_type = capability.get("type")
@@ -400,57 +413,84 @@ class SmartHomeHandler:
                     logger.info(f"Processing action for {device_id}, desired state: {expected_state}")
 
                     # Get current state before action
-                    self.device_manager.publish_command_to_api(device_id, "state", context)
+                    if not self.device_manager.publish_command_to_api(device_id, "state", context):
+                        # Failed to send state request
+                        device_unreachable = True
+                        logger.error(f"Failed to send state request to {device_id}")
+                        break
+
                     current_state_data = self.mqtt_client.wait_for_state(mqtt_device_id, timeout=3.0)
                     current_state = current_state_data.get('state') if current_state_data else None
+
+                    if current_state is None:
+                        # Device didn't respond to state request
+                        device_unreachable = True
+                        logger.error(f"Device {device_id} didn't respond to state request")
+                        break
+
                     logger.info(f"Current state before action: {current_state}")
 
                     # Perform the action
-                    if self.device_manager.publish_command_to_api(device_id, command, context):
+                    if not self.device_manager.publish_command_to_api(device_id, command, context):
+                        # Failed to send action command
+                        capability_response["state"]["action_result"] = {
+                            "status": "ERROR",
+                            "error_code": "DEVICE_UNREACHABLE",
+                            "error_message": "Failed to send command to device"
+                        }
+                        logger.error(f"Failed to send command to {device_id}")
+                    else:
                         logger.info(f"Command '{command}' sent successfully")
 
                         # Request state after action
-                        self.device_manager.publish_command_to_api(device_id, "state", context)
+                        if not self.device_manager.publish_command_to_api(device_id, "state", context):
+                            capability_response["state"]["action_result"] = {
+                                "status": "ERROR",
+                                "error_code": "DEVICE_UNREACHABLE",
+                                "error_message": "Failed to request state after action"
+                            }
+                            logger.error(f"Failed to request state after action from {device_id}")
+                        else:
+                            # Wait for state change (or new state)
+                            state_after_data = self.mqtt_client.wait_for_state_change(
+                                mqtt_device_id, current_state, timeout=5.0
+                            )
 
-                        # Wait for state change (or new state)
-                        state_after_data = self.mqtt_client.wait_for_state_change(
-                            mqtt_device_id, current_state, timeout=5.0
-                        )
+                            # If no change detected, try getting any cached state
+                            if state_after_data is None:
+                                state_after_data = self.mqtt_client.get_cached_state(mqtt_device_id)
 
-                        # If no change detected, try getting any cached state
-                        if state_after_data is None:
-                            state_after_data = self.mqtt_client.get_cached_state(mqtt_device_id)
+                            # Verify the action
+                            if state_after_data is not None:
+                                actual_state = state_after_data.get('state')
 
-                        # Verify the action
-                        if state_after_data is not None:
-                            actual_state = state_after_data.get('state')
-
-                            if actual_state == expected_state:
-                                capability_response["state"]["action_result"] = {"status": "DONE"}
-                                logger.info(f"Action verified: device is now {actual_state}")
+                                if actual_state == expected_state:
+                                    capability_response["state"]["action_result"] = {"status": "DONE"}
+                                    logger.info(f"Action verified: device is now {actual_state}")
+                                else:
+                                    capability_response["state"]["action_result"] = {
+                                        "status": "ERROR",
+                                        "error_code": "DEVICE_UNREACHABLE",
+                                        "error_message": f"Expected '{expected_state}' but got '{actual_state}'"
+                                    }
+                                    logger.error(f"Action failed: expected {expected_state}, got {actual_state}")
                             else:
                                 capability_response["state"]["action_result"] = {
                                     "status": "ERROR",
                                     "error_code": "DEVICE_UNREACHABLE",
-                                    "error_message": f"Expected '{expected_state}' but got '{actual_state}'"
+                                    "error_message": "Device did not respond after action"
                                 }
-                                logger.error(f"Action failed: expected {expected_state}, got {actual_state}")
-                        else:
-                            capability_response["state"]["action_result"] = {
-                                "status": "ERROR",
-                                "error_code": "DEVICE_UNREACHABLE",
-                                "error_message": "Failed to get state after action"
-                            }
-                            logger.error("No state received after action")
-                    else:
-                        capability_response["state"]["action_result"] = {
-                            "status": "ERROR",
-                            "error_code": "DEVICE_UNREACHABLE",
-                            "error_message": "Failed to send command"
-                        }
-                        logger.error(f"Failed to send command to {device_id}")
+                                logger.error(f"No state received from {device_id} after action")
 
-                device_response["capabilities"].append(capability_response)
+                device_capabilities.append(capability_response)
+
+            # Set device-level response
+            if device_unreachable:
+                device_response["error_code"] = "DEVICE_UNREACHABLE"
+                device_response["error_message"] = "Device is unreachable or did not respond"
+                logger.error(f"Device {device_id} is unreachable")
+            else:
+                device_response["capabilities"] = device_capabilities
 
             response_devices.append(device_response)
 
