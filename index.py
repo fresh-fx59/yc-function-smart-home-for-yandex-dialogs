@@ -9,7 +9,7 @@ from typing import Dict, Any, List
 from my_logger import logger
 from mqtt_manager import get_mqtt_manager
 
-# version 0.9 from github
+# version 0.10 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 REGISTRY_PASSWORD = os.environ['REGISTRY_PASSWORD']

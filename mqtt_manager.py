@@ -8,6 +8,8 @@ import json
 
 from my_logger import logger
 
+CERTIFICATE_PATH = "rootCA.crt"
+
 REGISTRY_ID = os.environ['REGISTRY_ID']
 REGISTRY_PASSWORD = os.environ['REGISTRY_PASSWORD']
 
@@ -98,8 +100,7 @@ class MQTTStateManager:
             self.client.username_pw_set(self.registry_id, self.registry_password)
 
             # Configure TLS/SSL
-            self.client.tls_set(ca_certs=None, certfile=None, keyfile=None,
-                                cert_reqs=ssl.CERT_REQUIRED, tls_version=ssl.PROTOCOL_TLSv1_2)
+            self.client.tls_set(ca_certs=CERTIFICATE_PATH, tls_version=ssl.PROTOCOL_TLSv1_2)
 
             # Connect to Yandex IoT Core MQTT broker
             logger.info(f"Connecting to MQTT broker at {MQTT_HOST}:{MQTT_PORT}")
