@@ -1,6 +1,7 @@
 import logging
 from pythonjsonlogger import jsonlogger
 
+
 class YcLoggingFormatter(jsonlogger.JsonFormatter):
     """Custom logging formatter for Yandex Cloud"""
     def add_fields(self, log_record, record, message_dict):

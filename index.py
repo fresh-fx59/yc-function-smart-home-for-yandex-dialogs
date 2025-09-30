@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.7 from github
+# version 0.8 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 REGISTRY_PASSWORD = os.environ['REGISTRY_PASSWORD']
