@@ -1,14 +1,15 @@
 import os
-
-from my_logger import logger
-from mqtt_methods import subscribe_and_wait_auth
 import json
-from enum import Enum
-from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.8 from github
+from enum import Enum
+from typing import Dict, Any, List
+
+from my_logger import logger
+from mqtt_manager import get_mqtt_manager
+
+# version 0.9 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 REGISTRY_PASSWORD = os.environ['REGISTRY_PASSWORD']
@@ -34,6 +35,7 @@ class DeviceManager:
     """Manages device configurations and operations"""
 
     def __init__(self):
+        self.mqtt_manager = get_mqtt_manager()
         self.registry_id = REGISTRY_ID
         self.registry_password = REGISTRY_PASSWORD
         self.devices = {
@@ -109,16 +111,8 @@ class DeviceManager:
 
         for device in devices:
             device_id = device.get("id")
-            topic = self.getStateTopic(device_id)
+            mqtt_device_id = self.devices[device_id]["mqtt_device_id"]
             logger.info(f"get_query_response processing Device ID: {device_id}")
-
-            result_from_topic = None
-            if device_id == TEST_PUSHER_ID:
-                publish_result = self.publish_command_to_api(device_id, "state", context)
-                logger.info(f"Got publish_result = {publish_result} from commands topic")
-
-                result_from_topic = subscribe_and_wait_auth(topic, self.registry_id, self.registry_password)
-                logger.info(f"Got result = {result_from_topic} from topic: {topic}")
 
             # its not ideal at all, but working
             if device_id == PUSHER_ID:
@@ -129,11 +123,24 @@ class DeviceManager:
                     }
                 }
 
+            # Request fresh state
             value = False
-            logger.info(f"Same variables before if. Got result = {result_from_topic} from topic: {topic}")
-            if result_from_topic is not None:
-                if result_from_topic["state"] == "on":
-                    value = True
+            if device_id == TEST_PUSHER_ID:
+                self.publish_command_to_api(device_id, "state", context)
+
+                # Wait for updated state from MQTT
+                state_data = self.mqtt_manager.wait_for_state_update(mqtt_device_id, timeout=5.0)
+
+                if state_data is not None:
+                    if state_data.get('state') == "on":
+                        value = True
+                    logger.info(f"Got state for {device_id}: {state_data.get('state')}")
+                else:
+                    # Fallback to cached state
+                    cached_state = self.mqtt_manager.get_device_state(mqtt_device_id, max_age_seconds=60)
+                    if cached_state and cached_state.get('state') == "on":
+                        value = True
+                    logger.warning(f"Using cached/default state for {device_id}")
 
             response_devices.append({
                 "id": device_id,
@@ -262,35 +269,34 @@ class SmartHomeHandler:
                     }
 
                 # Handle pusher device (on/off switch)
-                if device_id == TEST_PUSHER_ID and capability_type == "devices.capabilities.on_off":
+                if (device_id == PUSHER_ID or device_id == TEST_PUSHER_ID) and \
+                        capability_type == "devices.capabilities.on_off":
+
                     state_value = capability["state"].get("value")
                     command = "1" if state_value else "0"
-                    topic = self.device_manager.getStateTopic(device_id)
+                    mqtt_device_id = self.device_manager.devices[device_id]["mqtt_device_id"]
+                    expected_state = "on" if state_value else "off"
 
-                    logger.info(f"Processing action for Device ID: {device_id}, desired state: {state_value}")
+                    logger.info(f"Processing action for Device ID: {device_id}, desired state: {expected_state}")
 
-                    # Get state before action
-                    logger.info(f"Getting state before action from topic: {topic}")
-                    self.device_manager.publish_command_to_api(device_id, "state", context)
-                    state_before = subscribe_and_wait_auth(topic, self.device_manager.registry_id,
-                                                           self.device_manager.registry_password)
-                    logger.info(f"State before action: {state_before}")
+                    # Get current state from cache
+                    current_state = self.device_manager.mqtt_manager.get_device_state(
+                        mqtt_device_id, max_age_seconds=60
+                    )
+                    logger.info(f"Current cached state: {current_state}")
 
                     # Perform the action
                     if self.device_manager.publish_command_to_api(device_id, command, context):
                         logger.info(f"Command '{command}' sent successfully to device {device_id}")
 
-                        # Get state after action
-                        logger.info(f"Getting state after action from topic: {topic}")
-                        self.device_manager.publish_command_to_api(device_id, "state", context)
-                        state_after = subscribe_and_wait_auth(topic, self.device_manager.registry_id,
-                                                              self.device_manager.registry_password)
-                        logger.info(f"State after action: {state_after}")
+                        # Wait for state update after action
+                        state_after = self.device_manager.mqtt_manager.wait_for_state_update(
+                            mqtt_device_id, timeout=5.0
+                        )
 
                         # Verify the action completed successfully
                         if state_after is not None:
-                            actual_state = state_after.get("state")
-                            expected_state = "on" if state_value else "off"
+                            actual_state = state_after.get('state')
 
                             if actual_state == expected_state:
                                 capability_response["state"]["action_result"] = {"status": "DONE"}
@@ -304,12 +310,20 @@ class SmartHomeHandler:
                                 logger.error(
                                     f"Action verification failed: expected {expected_state}, got {actual_state}")
                         else:
-                            capability_response["state"]["action_result"] = {
-                                "status": "ERROR",
-                                "error_code": "DEVICE_UNREACHABLE",
-                                "error_message": "Failed to get state after action"
-                            }
-                            logger.error("Failed to retrieve state after action")
+                            # Check if maybe the state was already correct (idempotent operation)
+                            cached_state = self.device_manager.mqtt_manager.get_device_state(
+                                mqtt_device_id, max_age_seconds=10
+                            )
+                            if cached_state and cached_state.get('state') == expected_state:
+                                capability_response["state"]["action_result"] = {"status": "DONE"}
+                                logger.info(f"Action assumed successful based on cached state")
+                            else:
+                                capability_response["state"]["action_result"] = {
+                                    "status": "ERROR",
+                                    "error_code": "DEVICE_UNREACHABLE",
+                                    "error_message": "Failed to get state after action"
+                                }
+                                logger.error("Failed to retrieve state after action")
                     else:
                         capability_response["state"]["action_result"] = {
                             "status": "ERROR",
