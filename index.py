@@ -8,7 +8,7 @@ from typing import Dict, Any, List
 import requests
 import base64
 
-# version 0.6 from github
+# version 0.7 from github
 
 REGISTRY_ID = os.environ['REGISTRY_ID']
 REGISTRY_PASSWORD = os.environ['REGISTRY_PASSWORD']
@@ -113,12 +113,21 @@ class DeviceManager:
             logger.info(f"get_query_response processing Device ID: {device_id}")
 
             result_from_topic = None
-            if device_id == TEST_PUSHER_ID or device_id == PUSHER_ID:
+            if device_id == TEST_PUSHER_ID:
                 publish_result = self.publish_command_to_api(device_id, "state", context)
                 logger.info(f"Got publish_result = {publish_result} from commands topic")
 
                 result_from_topic = subscribe_and_wait_auth(topic, self.registry_id, self.registry_password)
                 logger.info(f"Got result = {result_from_topic} from topic: {topic}")
+
+            # its not ideal at all, but working
+            if device_id == PUSHER_ID:
+                return {
+                    "request_id": request_id,
+                    "payload": {
+                        "devices": response_devices
+                    }
+                }
 
             value = False
             logger.info(f"Same variables before if. Got result = {result_from_topic} from topic: {topic}")
@@ -227,9 +236,33 @@ class SmartHomeHandler:
                     "state": capability.get("state", {}).copy()
                 }
 
+                # not ideal but working
+                if device_id == PUSHER_ID and capability_type == "devices.capabilities.on_off":
+                    state_value = capability["state"].get("value")
+                    command = "1" if state_value else "0"
+                    if self.device_manager.publish_command_to_api(device_id, command, context):
+                        capability_response["state"]["action_result"] = {"status": "DONE"}
+                    else:
+                        capability_response["state"]["action_result"] = {
+                            "status": "ERROR",
+                            "error_code": "DEVICE_UNREACHABLE",
+                            "error_message": f"Expected state '{expected_state}' but got '{actual_state}'"
+                        }
+                        logger.error(
+                            f"Action verification failed: expected {expected_state}, got {actual_state}")
+
+                    device_response["capabilities"].append(capability_response)
+                    response_devices.append(device_response)
+
+                    return {
+                        "request_id": request_id,
+                        "payload": {
+                            "devices": response_devices
+                        }
+                    }
+
                 # Handle pusher device (on/off switch)
-                if (
-                        device_id == PUSHER_ID or device_id == TEST_PUSHER_ID) and capability_type == "devices.capabilities.on_off":
+                if device_id == TEST_PUSHER_ID and capability_type == "devices.capabilities.on_off":
                     state_value = capability["state"].get("value")
                     command = "1" if state_value else "0"
                     topic = self.device_manager.getStateTopic(device_id)
