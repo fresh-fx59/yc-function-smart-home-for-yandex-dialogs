@@ -1,4 +1,4 @@
-from index import RequestType
+from model import RequestType
 from my_logger import logger
 
 DEVICE_UNREACHABLE_CODE = "DEVICE_UNREACHABLE"
