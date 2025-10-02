@@ -9,7 +9,7 @@ from mqtt_client import ServerlessMQTTClient
 from my_logger import logger
 
 
-# version 0.15.3
+# version 0.15.4
 
 class SmartHomeHandler:
     """Main handler for Yandex Smart Home requests"""
@@ -39,7 +39,7 @@ class SmartHomeHandler:
         """Handle device action request"""
         logger.info(f"Processing action request: {request_id}")
         devices = payload.get("devices", [])
-        return self.device_manager.get_query_response(request_id, devices, context)
+        return self.device_manager.get_action_response(request_id, devices, context)
 
 
 def handler(event, context):
