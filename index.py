@@ -1,27 +1,15 @@
-import threading
-import time
-from enum import Enum
-from typing import Dict, Any, Optional, List
-import paho.mqtt.client as mqtt
-import ssl
 import json
+from typing import Dict, Any
 
 from config import REGISTRY_ID, REGISTRY_PASSWORD, PUSHER_DEVICE_ID, TEST_PUSHER_DEVICE_ID
 from device_manager import DeviceManager
 from error_util import create_error_response
+from model import RequestType
 from mqtt_client import ServerlessMQTTClient
 from my_logger import logger
 
 
-# version 0.14
-
-class RequestType(Enum):
-    """Yandex Smart Home request types"""
-    UNLINK = "unlink"
-    DISCOVERY = "discovery"
-    QUERY = "query"
-    ACTION = "action"
-
+# version 0.15
 
 class SmartHomeHandler:
     """Main handler for Yandex Smart Home requests"""
@@ -77,8 +65,10 @@ def handler(event, context):
 
             if not mqtt_client.connect_and_subscribe(mqtt_device_ids):
                 logger.error("Failed to establish MQTT connection")
-                return create_error_response(event, error_message=f"Failed to subscribe at device_ids({mqtt_device_ids})"
-                                                                  f"topics for request = {request_type}")
+                return create_error_response(
+                    event,
+                    error_message=f"Failed to subscribe at device_ids({mqtt_device_ids}) topics for request = {request_type}"
+                )
 
         # Initialize handler
         smart_home = SmartHomeHandler(mqtt_client) if mqtt_client else SmartHomeHandler(None)
