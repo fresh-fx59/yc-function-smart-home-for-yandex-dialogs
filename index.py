@@ -1,7 +1,7 @@
 import json
 from typing import Dict, Any
 
-from config import REGISTRY_ID, REGISTRY_PASSWORD
+from config import REGISTRY_ID, REGISTRY_PASSWORD, DEVICES
 from device_manager import DeviceManager
 from error_util import create_error_response
 from model import RequestType
@@ -9,7 +9,7 @@ from mqtt_client import ServerlessMQTTClient
 from my_logger import logger
 
 
-# version 0.15.2
+# version 0.15.3
 
 class SmartHomeHandler:
     """Main handler for Yandex Smart Home requests"""
@@ -63,7 +63,7 @@ def handler(event, context):
             # Get all MQTT device IDs
             mqtt_device_ids = []
             for device in payload.get("devices", []):
-                mqtt_device_ids.append(device.get("id"))
+                mqtt_device_ids.append(DEVICES[device.get("id")]["mqtt_device_id"])
 
             if not mqtt_client.connect_and_subscribe(mqtt_device_ids):
                 logger.error("Failed to establish MQTT connection")

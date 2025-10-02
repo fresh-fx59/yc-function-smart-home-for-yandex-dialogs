@@ -19,3 +19,22 @@ PUSHER_PASSWORD = os.environ['PUSHER_DEVICE_PASSWORD']
 TEST_PUSHER_ID = "pushernodemcu"
 TEST_PUSHER_DEVICE_ID = os.environ['TEST_PUSHER_DEVICE_ID']
 TEST_PUSHER_PASSWORD = os.environ['TEST_PUSHER_DEVICE_PASSWORD']
+
+DEVICES = {
+    TEST_PUSHER_ID: {
+        "mqtt_device_id": TEST_PUSHER_DEVICE_ID,
+        "name": "nodemcuv2 Button Pusher",
+        "password": TEST_PUSHER_PASSWORD,
+        "description": "Smart button pusher device",
+        "type": "devices.types.switch",
+        "capabilities": ["devices.capabilities.on_off"]
+    },
+    PUSHER_ID: {
+        "mqtt_device_id": PUSHER_DEVICE_ID,
+        "name": "Button Pusher",
+        "password": PUSHER_PASSWORD,
+        "description": "Smart button pusher device",
+        "type": "devices.types.switch",
+        "capabilities": ["devices.capabilities.on_off"]
+    }
+}

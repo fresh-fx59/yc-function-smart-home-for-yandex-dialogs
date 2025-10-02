@@ -3,11 +3,12 @@ from typing import List, Dict, Any
 
 import requests
 
+from config import REGISTRY_ID, REGISTRY_PASSWORD, TEST_PUSHER_ID, \
+    PUSHER_ID, MQTT_WAIT_FOR_STATE_TIMEOUT, MQTT_WAIT_FOR_STATE_CHANGE_TIMEOUT, \
+    DEVICES
 from error_util import DEVICE_UNREACHABLE_CODE, get_error_response
 from mqtt_client import ServerlessMQTTClient
 from my_logger import logger
-from config import REGISTRY_ID, REGISTRY_PASSWORD, TEST_PUSHER_ID, TEST_PUSHER_DEVICE_ID, TEST_PUSHER_PASSWORD, \
-    PUSHER_ID, PUSHER_DEVICE_ID, PUSHER_PASSWORD, MQTT_WAIT_FOR_STATE_TIMEOUT, MQTT_WAIT_FOR_STATE_CHANGE_TIMEOUT
 
 
 class DeviceManager:
@@ -17,24 +18,7 @@ class DeviceManager:
         self.registry_id = REGISTRY_ID
         self.registry_password = REGISTRY_PASSWORD
         self.mqtt_client = mqtt_client
-        self.devices = {
-            TEST_PUSHER_ID: {
-                "mqtt_device_id": TEST_PUSHER_DEVICE_ID,
-                "name": "nodemcuv2 Button Pusher",
-                "password": TEST_PUSHER_PASSWORD,
-                "description": "Smart button pusher device",
-                "type": "devices.types.switch",
-                "capabilities": ["devices.capabilities.on_off"]
-            },
-            PUSHER_ID: {
-                "mqtt_device_id": PUSHER_DEVICE_ID,
-                "name": "Button Pusher",
-                "password": PUSHER_PASSWORD,
-                "description": "Smart button pusher device",
-                "type": "devices.types.switch",
-                "capabilities": ["devices.capabilities.on_off"]
-            }
-        }
+        self.devices = DEVICES
 
     def get_discovery_response(self, request_id: str) -> Dict[str, Any]:
         """Generate discovery response with all devices"""
