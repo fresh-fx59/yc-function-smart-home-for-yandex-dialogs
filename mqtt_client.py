@@ -6,7 +6,8 @@ from typing import Optional, Dict, Any, List
 
 import paho.mqtt.client as mqtt
 
-from config import CERTIFICATE_PATH, MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE, MQTT_WAIT_FOR_CONNECTION_EVENT
+from config import CERTIFICATE_PATH, MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE, MQTT_WAIT_FOR_CONNECTION_EVENT, \
+    MQTT_WAIT_FOR_STATE_CHANGE_TIMEOUT
 from my_logger import logger
 
 
@@ -129,7 +130,7 @@ class ServerlessMQTTClient:
         return None
 
     def wait_for_state_change(self, mqtt_device_id: str, previous_state: Optional[str],
-                              timeout: float = 5.0) -> Optional[Dict[str, Any]]:
+                              timeout: float = MQTT_WAIT_FOR_STATE_CHANGE_TIMEOUT) -> Optional[Dict[str, Any]]:
         """
         Wait for state to change from previous state
         Useful for verifying action completion

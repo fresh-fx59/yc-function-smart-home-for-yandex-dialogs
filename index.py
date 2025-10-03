@@ -9,7 +9,7 @@ from mqtt_client import ServerlessMQTTClient
 from my_logger import logger
 
 
-# version 0.15.6
+# version 0.15.7
 
 class SmartHomeHandler:
     """Main handler for Yandex Smart Home requests"""
