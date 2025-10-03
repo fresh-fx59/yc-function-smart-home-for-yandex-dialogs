@@ -5,14 +5,14 @@ DEVICE_UNREACHABLE_CODE = "DEVICE_UNREACHABLE"
 ERROR_STATUS = "ERROR"
 
 
-def get_error_response(message: str) -> dict:
-    message_to_return = {
+def get_error_response(message: str, capability_response) -> dict:
+    capability_response["state"]["action_result"] = {
         "status": ERROR_STATUS,
         "error_code": DEVICE_UNREACHABLE_CODE,
         "error_message": message
     }
     logger.error(message)
-    return message_to_return
+    return capability_response
 
 
 def create_error_response(

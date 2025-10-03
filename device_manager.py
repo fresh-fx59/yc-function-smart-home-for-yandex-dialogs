@@ -159,9 +159,7 @@ class DeviceManager:
                     # Get current state before action
                     if not self.publish_command_to_api(device_id, "state", context):
                         # Failed to send state request
-                        capability_response["state"]["action_result"] = get_error_response(
-                                f"Failed to send state request to {device_id}"
-                            )
+                        device_capabilities.append(get_error_response(f"Failed to send state request to {device_id}", capability_response))
                         break
 
                     current_state_data = self.mqtt_client.wait_for_state(
@@ -171,9 +169,7 @@ class DeviceManager:
 
                     if current_state is None:
                         # Device didn't respond to state request
-                        capability_response["state"]["action_result"] = get_error_response(
-                                f"Device {device_id} didn't respond to state request"
-                            )
+                        device_capabilities.append(get_error_response(f"Device {device_id} didn't respond to state request", capability_response))
                         break
 
                     logger.info(f"Current state before action: {current_state}")
@@ -181,17 +177,15 @@ class DeviceManager:
                     # Perform the action
                     if not self.publish_command_to_api(device_id, command, context):
                         # Failed to send action command
-                        capability_response["state"]["action_result"] = get_error_response(
-                                f"Failed to send command to {device_id}"
-                            )
+                        device_capabilities.append(get_error_response(f"Failed to send command to {device_id}", capability_response))
                     else:
                         logger.info(f"Command '{command}' sent successfully")
 
                         # Request state after action
                         if not self.publish_command_to_api(device_id, "state", context):
-                            capability_response["state"]["action_result"] = get_error_response(
-                                f"Failed to request state after action from {device_id}"
-                            )
+                            device_capabilities.append(
+                                get_error_response(f"Failed to request state after action from {device_id}", capability_response))
+
                         else:
                             # Wait for state change (or new state)
                             state_after_data = self.mqtt_client.wait_for_state_change(
@@ -208,15 +202,16 @@ class DeviceManager:
 
                                 if actual_state == expected_state:
                                     capability_response["state"]["action_result"] = {"status": "DONE"}
+                                    device_capabilities.append(capability_response)
                                     logger.info(f"Action verified: device is now {actual_state}")
                                 else:
-                                    capability_response["state"]["action_result"] = (
-                                        get_error_response(f"Action failed: expected {expected_state}, got {actual_state}"))
+                                    device_capabilities.append(
+                                        get_error_response(f"Action failed: expected {expected_state}, got {actual_state}",
+                                                           capability_response))
                             else:
-                                capability_response["state"]["action_result"] = (
-                                    get_error_response(f"No state received from {device_id} after action"))
-
-                device_capabilities.append(capability_response)
+                                device_capabilities.append(
+                                    get_error_response(f"No state received from {device_id} after action", capability_response))
+                                break
 
             # Set device-level response
             device_response["capabilities"] = device_capabilities
@@ -257,6 +252,3 @@ class DeviceManager:
         except Exception as e:
             logger.error(f"Error publishing API command to {device_id}: {str(e)}")
             return False
-
-
-
