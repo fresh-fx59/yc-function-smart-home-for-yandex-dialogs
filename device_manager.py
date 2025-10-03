@@ -163,14 +163,14 @@ class DeviceManager:
                         break
 
                     current_state_data = self.mqtt_client.wait_for_state(
-                        mqtt_device_id, timeout=MQTT_WAIT_FOR_STATE_TIMEOUT
-                    )
-                    current_state = current_state_data.get('state') if current_state_data else None
+                        mqtt_device_id, timeout=MQTT_WAIT_FOR_STATE_TIMEOUT)
 
-                    if current_state is None:
+                    if current_state_data is None:
                         # Device didn't respond to state request
                         device_capabilities.append(get_error_response(f"Device {device_id} didn't respond to state request", capability_response))
                         break
+
+                    current_state = current_state_data.get('state')
 
                     logger.info(f"Current state before action: {current_state}")
 
