@@ -9,7 +9,7 @@ from mqtt_client import ServerlessMQTTClient
 from my_logger import logger
 
 
-# version 0.15.7
+# version 0.15.8
 
 class SmartHomeHandler:
     """Main handler for Yandex Smart Home requests"""
@@ -69,6 +69,7 @@ def handler(event, context):
                 logger.error("Failed to establish MQTT connection")
                 return create_error_response(
                     event,
+                    request_type,
                     error_message=f"Failed to subscribe at device_ids({mqtt_device_ids}) topics for request = {request_type}"
                 )
 
