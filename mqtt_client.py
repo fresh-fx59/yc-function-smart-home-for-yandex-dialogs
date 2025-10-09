@@ -60,57 +60,87 @@ class ServerlessMQTTClient:
         except Exception as e:
             logger.error(f"Error processing MQTT message: {str(e)}", exc_info=True)
 
-    def connect_and_subscribe(self, mqtt_device_ids: List[str]) -> bool:
+    def connect_and_subscribe(self, mqtt_device_ids: List[str], max_retries: int = 3) -> bool:
         """
         Connect to MQTT broker and subscribe to device topics
         This is called once at the start of function invocation
+
+        Args:
+            mqtt_device_ids: List of MQTT device IDs to subscribe to
+            max_retries: Maximum number of connection attempts (default: 3)
         """
-        try:
-            # Create MQTT client
-            self.client = mqtt.Client(client_id=f"yandex_function_{int(time.time() * 1000)}")
+        last_exception = None
 
-            # Set callbacks
-            self.client.on_connect = self._on_connect
-            self.client.on_message = self._on_message
+        for attempt in range(max_retries):
+            try:
+                # Create MQTT client
+                self.client = mqtt.Client(client_id=f"yandex_function_{int(time.time() * 1000)}")
 
-            # Set username/password
-            self.client.username_pw_set(self.registry_id, self.registry_password)
+                # Set callbacks
+                self.client.on_connect = self._on_connect
+                self.client.on_message = self._on_message
 
-            # Configure TLS/SSL
-            self.client.tls_set(ca_certs=CERTIFICATE_PATH, tls_version=ssl.PROTOCOL_TLSv1_2)
+                # Set username/password
+                self.client.username_pw_set(self.registry_id, self.registry_password)
 
-            # Connect to Yandex IoT Core MQTT broker
-            logger.info(f"Connecting to MQTT broker at {MQTT_HOST}:{MQTT_PORT}")
+                # Configure TLS/SSL
+                self.client.tls_set(ca_certs=CERTIFICATE_PATH, tls_version=ssl.PROTOCOL_TLSv1_2)
 
-            # Start loop in background thread
-            self.client.loop_start()
+                # Connect to Yandex IoT Core MQTT broker
+                logger.info(
+                    f"Connecting to MQTT broker at {MQTT_HOST}:{MQTT_PORT} (attempt {attempt + 1}/{max_retries})")
 
-            # Connect (non-blocking)
-            self.client.connect(MQTT_HOST, MQTT_PORT, keepalive=MQTT_KEEPALIVE)
+                # Start loop in background thread
+                self.client.loop_start()
 
-            # Wait for connection to establish
-            if not self.connection_event.wait(timeout=MQTT_WAIT_FOR_CONNECTION_EVENT):
-                raise Exception("Connection timeout")
+                # Connect (non-blocking)
+                self.client.connect(MQTT_HOST, MQTT_PORT, keepalive=MQTT_KEEPALIVE)
 
-            if not self.connected:
-                raise Exception("Failed to connect to MQTT broker")
+                # Wait for connection to establish
+                if not self.connection_event.wait(timeout=MQTT_WAIT_FOR_CONNECTION_EVENT):
+                    raise Exception("Connection timeout")
 
-            # Subscribe to all device state topics
-            for mqtt_device_id in mqtt_device_ids:
-                topic = f"$devices/{mqtt_device_id}/state"
-                result = self.client.subscribe(topic)
-                if result[0] == mqtt.MQTT_ERR_SUCCESS:
-                    logger.info(f"Subscribed to topic: {topic}")
-                else:
-                    logger.error(f"Failed to subscribe to topic {topic}")
+                if not self.connected:
+                    raise Exception("Failed to connect to MQTT broker")
 
-            logger.info("MQTT connection and subscription established successfully")
-            return True
+                # Subscribe to all device state topics
+                for mqtt_device_id in mqtt_device_ids:
+                    topic = f"$devices/{mqtt_device_id}/state"
+                    result = self.client.subscribe(topic)
+                    if result[0] == mqtt.MQTT_ERR_SUCCESS:
+                        logger.info(f"Subscribed to topic: {topic}")
+                    else:
+                        logger.error(f"Failed to subscribe to topic {topic}")
 
-        except Exception as e:
-            logger.error(f"Error connecting to MQTT broker: {str(e)}", exc_info=True)
-            self.cleanup()
-            return False
+                logger.info("MQTT connection and subscription established successfully")
+                return True
+
+            except Exception as e:
+                last_exception = e
+                logger.warning(
+                    f"Connection attempt {attempt + 1}/{max_retries} failed: {str(e)}",
+                    exc_info=(attempt == max_retries - 1)  # Only log full traceback on last attempt
+                )
+
+                # Cleanup failed connection attempt
+                self.cleanup()
+
+                # Reset connection event for next attempt
+                self.connection_event.clear()
+                self.connected = False
+
+                # Wait before retrying (exponential backoff)
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # 1s, 2s, 4s
+                    logger.info(f"Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+
+        # All retries failed
+        logger.error(
+            f"Failed to connect to MQTT broker after {max_retries} attempts. Last error: {str(last_exception)}",
+            exc_info=True
+        )
+        return False
 
     def wait_for_state(self, mqtt_device_id: str, timeout: float = 5.0) -> Optional[Dict[str, Any]]:
         """
