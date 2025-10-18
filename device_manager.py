@@ -170,7 +170,6 @@ class DeviceManager:
                 if (
                         device_id == PUSHER_ID
                         or device_id == TEST_PUSHER_ID
-                        or device_id == WATERING_SYSTEM_ID
                 ) and capability_type == "devices.capabilities.on_off":
 
                     state_value = capability["state"].get("value")
