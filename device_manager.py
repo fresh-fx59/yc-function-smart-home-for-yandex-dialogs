@@ -171,8 +171,7 @@ class DeviceManager:
                         device_id == PUSHER_ID
                         or device_id == TEST_PUSHER_ID
                         or device_id == WATERING_SYSTEM_ID
-                ) and \
-                        capability_type == "devices.capabilities.on_off":
+                ) and capability_type == "devices.capabilities.on_off":
 
                     state_value = capability["state"].get("value")
                     command = "1" if state_value else "0"
@@ -237,6 +236,20 @@ class DeviceManager:
                                 device_capabilities.append(
                                     get_error_response(f"No state received from {device_id} after action", capability_response))
                                 break
+                elif device_id == WATERING_SYSTEM_ID and capability_type == "devices.capabilities.on_off":
+                    command = "start_all"
+                    mqtt_device_id = self.devices[device_id]["mqtt_device_id"]
+
+                    # Perform the action
+                    if not self.publish_command_to_api(device_id, command, context):
+                        # Failed to send action command
+                        device_capabilities.append(
+                            get_error_response(f"Failed to send command to {device_id}", capability_response))
+                    else:
+                        logger.info(f"Command '{command}' sent successfully")
+
+                        capability_response["state"]["action_result"] = {"status": "DONE"}
+                        device_capabilities.append(capability_response)
 
             # Set device-level response
             device_response["capabilities"] = device_capabilities
