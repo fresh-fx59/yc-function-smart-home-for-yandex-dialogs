@@ -5,7 +5,7 @@ import requests
 
 from config import REGISTRY_ID, REGISTRY_PASSWORD, TEST_PUSHER_ID, \
     PUSHER_ID, MQTT_WAIT_FOR_STATE_TIMEOUT, MQTT_WAIT_FOR_STATE_CHANGE_TIMEOUT, \
-    DEVICES
+    DEVICES, WATERING_SYSTEM_ID
 from error_util import DEVICE_UNREACHABLE_CODE, get_error_response
 from mqtt_client import ServerlessMQTTClient
 from my_logger import logger
@@ -62,6 +62,24 @@ class DeviceManager:
                             "hw_version": "v1.0",
                             "sw_version": "pusher_0.1.1"
                         }
+                    },
+                    {
+                        "id": WATERING_SYSTEM_ID,
+                        "name": "Plants Watering System",
+                        "description": "Plants Watering System just for launching watering process",
+                        "type": "devices.types.switch",
+                        "capabilities": [
+                            {
+                                "type": "devices.capabilities.on_off",
+                                "retrievable": False
+                            }
+                        ],
+                        "device_info": {
+                            "manufacturer": "Unknown",
+                            "model": "YD-ESP32-23",
+                            "hw_version": "2022-V1.3",
+                            "sw_version": "ws_1.0.1"
+                        }
                     }
                 ]
             }
@@ -81,7 +99,10 @@ class DeviceManager:
                 "id": device_id
             }
 
-            if device_id == TEST_PUSHER_ID or device_id == PUSHER_ID:
+            if (
+                    device_id == TEST_PUSHER_ID
+                    or device_id == PUSHER_ID
+            ):
                 # Request state
                 publish_result = self.publish_command_to_api(device_id, "state", context)
 
@@ -146,7 +167,11 @@ class DeviceManager:
                 }
 
                 # Handle pusher device (on/off switch)
-                if (device_id == PUSHER_ID or device_id == TEST_PUSHER_ID) and \
+                if (
+                        device_id == PUSHER_ID
+                        or device_id == TEST_PUSHER_ID
+                        or device_id == WATERING_SYSTEM_ID
+                ) and \
                         capability_type == "devices.capabilities.on_off":
 
                     state_value = capability["state"].get("value")

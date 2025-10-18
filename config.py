@@ -20,6 +20,10 @@ TEST_PUSHER_ID = "pushernodemcu"
 TEST_PUSHER_DEVICE_ID = os.environ['TEST_PUSHER_DEVICE_ID']
 TEST_PUSHER_PASSWORD = os.environ['TEST_PUSHER_DEVICE_PASSWORD']
 
+WATERING_SYSTEM_ID = "watering-system"
+WATERING_SYSTEM_DEVICE_ID = os.environ['WATERING_SYSTEM_DEVICE_ID']
+WATERING_SYSTEM_PASSWORD = os.environ['WATERING_SYSTEM_DEVICE_PASSWORD']
+
 DEVICES = {
     TEST_PUSHER_ID: {
         "mqtt_device_id": TEST_PUSHER_DEVICE_ID,
@@ -34,6 +38,14 @@ DEVICES = {
         "name": "Button Pusher",
         "password": PUSHER_PASSWORD,
         "description": "Smart button pusher device",
+        "type": "devices.types.switch",
+        "capabilities": ["devices.capabilities.on_off"]
+    },
+    WATERING_SYSTEM_ID: {
+        "mqtt_device_id": WATERING_SYSTEM_DEVICE_ID,
+        "name": "Plants Watering System",
+        "password": WATERING_SYSTEM_PASSWORD,
+        "description": "Plants Watering System just for launching watering process",
         "type": "devices.types.switch",
         "capabilities": ["devices.capabilities.on_off"]
     }
